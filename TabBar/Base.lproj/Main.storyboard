@@ -19,7 +19,7 @@
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                     </view>
                     <connections>
-                        <segue destination="90o-Oy-HEV" kind="presentation" identifier="show" modalPresentationStyle="fullScreen" modalTransitionStyle="crossDissolve" id="ipF-QL-YJ2"/>
+                        <segue destination="90o-Oy-HEV" kind="presentation" identifier="show" modalPresentationStyle="fullScreen" modalTransitionStyle="flipHorizontal" id="ipF-QL-YJ2"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>

@@ -20,10 +20,18 @@ class ViewController: UIViewController {
         TabBarController.shared.delegate = self
         TabBarController.shared.showTabBar(on: self)
     }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        TabBarController.shared.setMoreOptions(isVisible: false)
+    }
 }
 
 extension ViewController: TabBarControllerDataSource {
-    func tabBar(controller: TabBarController, viewFor index: Int) -> UIView {
+    func tabBarNumberOfViews(_ tabBar: TabBarController) -> Int {
+        5
+    }
+    
+    func tabBar(_ tabBar: TabBarController, viewForItemAt index: Int) -> UIView {
         let button = UIButton(type: .system)
         button.setBackgroundImage([#imageLiteral(resourceName: "blue_like"), #imageLiteral(resourceName: "red_heart"), #imageLiteral(resourceName: "surprised"), #imageLiteral(resourceName: "cry_laugh"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry")][index], for: .normal)
         button.addTarget(self, action: #selector(handleButton), for: .touchUpInside)
@@ -38,6 +46,7 @@ extension ViewController: TabBarControllerDataSource {
 extension ViewController: TabBarControllerDelegate {
     func tabBar(_ tabBar: TabBarController, didSelectViewAt index: Int, on controller: UIViewController) {
         print(#function, index)
+        guard index != 2 else { return }
         TabBarController.shared.hideTabBar()
         if controller == self {
             performSegue(withIdentifier: "show", sender: self)
