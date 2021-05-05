@@ -8,40 +8,42 @@
 import UIKit
 
 class ViewController: UIViewController {
-    private let tabBarC = TabBarController(nibName: nil, bundle: nil)
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .red
-        initTabBar()
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        showTabBar()
-    }
-}
 
-extension ViewController {
-    private func initTabBar() {
-        addChild(tabBarC)
-        tabBarC.view.frame.size = CGSize(width: 400, height: 100)   // Should not be required
-        tabBarC.view.frame.origin = .init(x: (self.view.frame.width - self.tabBarC.view.frame.width)/2, y: view.frame.height)
-        tabBarC.view.alpha = 0
-        view.addSubview(tabBarC.view)
-    }
-    
-    private func showTabBar() {
-        UIView.animate(withDuration: 1, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
-            self.tabBarC.view.alpha = 1
-            self.tabBarC.view.frame.origin.y = self.view.frame.height - self.tabBarC.view.frame.height - self.view.safeAreaInsets.bottom
-        }
-    }
-}
-
-final class TabBarController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .blue
     }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        TabBarController.shared.dataSource = self
+        TabBarController.shared.delegate = self
+        TabBarController.shared.showTabBar(on: self)
+    }
 }
+
+extension ViewController: TabBarControllerDataSource {
+    func tabBar(controller: TabBarController, viewFor index: Int) -> UIView {
+        let button = UIButton(type: .system)
+        button.setBackgroundImage([#imageLiteral(resourceName: "blue_like"), #imageLiteral(resourceName: "red_heart"), #imageLiteral(resourceName: "surprised"), #imageLiteral(resourceName: "cry_laugh"), #imageLiteral(resourceName: "cry")][index], for: .normal)
+        button.addTarget(self, action: #selector(handleButton), for: .touchUpInside)
+        return button
+    }
+    
+    @objc private func handleButton() {
+        print(#function)
+    }
+}
+
+extension ViewController: TabBarControllerDelegate {
+    func tabBar(_ tabBar: TabBarController, didSelectViewAt index: Int, on controller: UIViewController) {
+        print(#function, index)
+        TabBarController.shared.hideTabBar()
+        if controller == self {
+            performSegue(withIdentifier: "show", sender: self)
+        } else {
+            dismiss(animated: true, completion: nil)
+        }
+    }
+}
+
