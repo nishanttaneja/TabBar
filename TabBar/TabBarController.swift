@@ -23,50 +23,52 @@ final class TabBarController: UIViewController {
     // Controller
     weak var controller: UIViewController!
     // Constants
+    private let numberOfIcons:CGFloat = 5
     private let iconHeight: CGFloat = 48
-    private let padding: CGFloat = 16
+    private let padding: CGFloat = 20
     // Layer
     private var shapeLayer: CAShapeLayer!
     // Views
-    private let backgroundView: UIView = {
+    private lazy var backgroundView: UIView = {
         let view = UIView()
+        view.backgroundColor = .clear
         view.clipsToBounds = true
-        view.translatesAutoresizingMaskIntoConstraints = false
+        let width = (numberOfIcons * iconHeight) + (numberOfIcons + 1)*padding
+        view.frame.size = .init(width: width, height: iconHeight + 2*padding)
+        view.frame.origin.y = self.view.frame.height - view.frame.height
+        view.frame.origin.x = (self.view.frame.width - view.frame.width)/2
         return view
     }()
-    private lazy var iconsStackView: UIStackView = {
-        var arrangedSubViews = [UIView]()
-        if dataSource != nil {
-            for index in 0..<5 {
-                let view = dataSource!.tabBar(controller: self, viewFor: index)
-                view.layer.cornerRadius = iconHeight/2
-                view.isUserInteractionEnabled = true
-                view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleViewSelection(_:))))
-                view.tag = index
-                if index == 2 {
-                    view.transform = CGAffineTransform(translationX: 0, y: -2*iconHeight/3)
-                }
-                arrangedSubViews.append(view)
-            }
+    private lazy var iconsContainerView: UIView = {
+        let view = UIView()
+        view.frame = self.view.frame
+        view.backgroundColor = .clear
+        guard dataSource != nil else { return view }
+        for index in 0..<Int(numberOfIcons) {
+            let icon = dataSource!.tabBar(controller: self, viewFor: index)
+            icon.layer.cornerRadius = iconHeight/2
+            icon.isUserInteractionEnabled = true
+            icon.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleViewSelection(_:))))
+            icon.tag = index
+            // Frame
+            let size: CGSize = .init(width: iconHeight, height: iconHeight)
+            let originX: CGFloat = (view.frame.width - backgroundView.frame.width)/2 + CGFloat(index + 1)*padding + CGFloat(index)*iconHeight
+            let originY: CGFloat = view.frame.height - backgroundView.frame.height + padding
+            icon.frame = CGRect(origin: CGPoint(x: originX, y: originY), size: size)
+            view.addSubview(icon)
         }
-        let stackView = UIStackView(arrangedSubviews: arrangedSubViews)
-        stackView.distribution = .fillEqually
-        stackView.spacing = padding
-        stackView.layoutMargins = .init(top: padding, left: padding, bottom: padding, right: padding)
-        stackView.isLayoutMarginsRelativeArrangement = true
-        view.addSubview(stackView)
-        let numberOfIcons = CGFloat(arrangedSubViews.count)
-        stackView.frame.size = CGSize(width:  numberOfIcons * iconHeight + (numberOfIcons + 1)*padding, height: iconHeight + (2 * padding))
-        view.frame.size = stackView.frame.size
-        backgroundView.frame = stackView.frame
-        return stackView
+        return view
     }()
-        
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        updateView()
         initBackgroundView()
-        initIconsStackView()
+        view.addSubview(iconsContainerView)
+        updateView()
+    }
+    
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
         initShapeLayer()
     }
 }
@@ -74,11 +76,10 @@ final class TabBarController: UIViewController {
 extension TabBarController {
     // View
     private func updateView() {
-        view.backgroundColor = .clear
         view.layer.cornerRadius = iconHeight / 2
         view.layer.shadowColor = UIColor.darkGray.cgColor
-        view.layer.shadowRadius = iconHeight/2
-        view.layer.shadowOpacity = 0.2
+        view.layer.shadowRadius = 5
+        view.layer.shadowOpacity = 0.5
         view.layer.shadowOffset = .zero
     }
     
@@ -86,11 +87,6 @@ extension TabBarController {
     private func initBackgroundView() {
         view.addSubview(backgroundView)
         backgroundView.layer.cornerRadius = iconHeight/2
-    }
-    
-    // IconsStack
-    private func initIconsStackView() {
-        view.addSubview(iconsStackView)
     }
     
     // ShapeLayer
@@ -119,9 +115,9 @@ extension TabBarController {
         shapeLayer.fillColor = UIColor.white.cgColor
         shapeLayer.lineWidth = 0.5
         shapeLayer.shadowOffset = .zero
-        shapeLayer.shadowRadius = iconHeight/2
+        shapeLayer.shadowRadius = 5
         shapeLayer.shadowColor = UIColor.darkGray.cgColor
-        shapeLayer.shadowOpacity = 0.2
+        shapeLayer.shadowOpacity = 0.5
         if let oldShapeLayer = self.shapeLayer {
             backgroundView.layer.replaceSublayer(oldShapeLayer, with: shapeLayer)
         } else {
@@ -149,6 +145,7 @@ extension TabBarController {
             UIView.animate(withDuration: 1, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
                 self.view.alpha = 1
                 self.view.frame.origin.y = controller.view.frame.height - self.view.frame.height - controller.view.safeAreaInsets.bottom
+                self.iconsContainerView.subviews[Int(self.numberOfIcons/2)].transform = .init(translationX: 0, y: -self.iconHeight)
             }
         }
     }

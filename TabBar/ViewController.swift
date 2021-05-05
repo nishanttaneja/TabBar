@@ -11,7 +11,7 @@ class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .blue
+//        view.backgroundColor = .blue
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -25,7 +25,7 @@ class ViewController: UIViewController {
 extension ViewController: TabBarControllerDataSource {
     func tabBar(controller: TabBarController, viewFor index: Int) -> UIView {
         let button = UIButton(type: .system)
-        button.setBackgroundImage([#imageLiteral(resourceName: "blue_like"), #imageLiteral(resourceName: "red_heart"), #imageLiteral(resourceName: "surprised"), #imageLiteral(resourceName: "cry_laugh"), #imageLiteral(resourceName: "cry")][index], for: .normal)
+        button.setBackgroundImage([#imageLiteral(resourceName: "blue_like"), #imageLiteral(resourceName: "red_heart"), #imageLiteral(resourceName: "surprised"), #imageLiteral(resourceName: "cry_laugh"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry")][index], for: .normal)
         button.addTarget(self, action: #selector(handleButton), for: .touchUpInside)
         return button
     }
