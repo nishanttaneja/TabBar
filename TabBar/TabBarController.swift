@@ -7,13 +7,20 @@
 
 import UIKit
 
-protocol TabBarControllerDataSource: AnyObject {
-    func tabBarNumberOfViews(_ tabBar: TabBarController) -> Int
-    func tabBar(_ tabBar: TabBarController, viewForItemAt index: Int) -> UIView
+protocol TabBarDataSource: AnyObject {
+    func tabBarNumberOfViews() -> Int
+    func tabBar(viewForItemAt index: Int) -> UIView
 }
 
-protocol TabBarControllerDelegate: AnyObject {
-    func tabBar(_ tabBar: TabBarController, didSelectViewAt index: Int, on controller: UIViewController)
+protocol TabBarDelegate: AnyObject {
+    func tabBar(didSelectViewAt index: Int, on controller: UIViewController)
+    func tabBar(willDisplay views: [UIView])
+}
+
+protocol TabBarDelegateLayout: AnyObject {
+    func tabBarContentViewHeight() -> CGFloat
+    func tabBarContentViewMargin() -> CGFloat
+    func tabBarInterViewSpacing() -> CGFloat
 }
 
 final class TabBarController: UIViewController {
@@ -24,8 +31,9 @@ final class TabBarController: UIViewController {
         let view = UIView()
         view.backgroundColor = .clear
         view.clipsToBounds = true
-        let width = (numberOfIcons * iconHeight) + (numberOfIcons + 1)*padding
-        view.frame.size = .init(width: width, height: iconHeight + 2*padding)
+        let iconsCount = CGFloat(numberOfIcons)
+        let width = (iconsCount * iconHeight) + (iconsCount - 1)*spacing + 2*margin
+        view.frame.size = .init(width: width, height: iconHeight + 2*margin)
         view.frame.origin.y = self.view.frame.height - view.frame.height
         view.frame.origin.x = (self.view.frame.width - view.frame.width)/2
         return view
@@ -35,16 +43,16 @@ final class TabBarController: UIViewController {
         view.frame = self.view.frame
         view.backgroundColor = .clear
         guard dataSource != nil else { return view }
-        for index in 0..<dataSource!.tabBarNumberOfViews(self) {
-            let icon = dataSource!.tabBar(self, viewForItemAt: index)
+        for index in 0..<numberOfIcons {
+            let icon = dataSource!.tabBar(viewForItemAt: index)
             icon.layer.cornerRadius = iconHeight/2
             icon.isUserInteractionEnabled = true
             icon.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleViewSelection(_:))))
             icon.tag = index
             // Frame
             let size: CGSize = .init(width: iconHeight, height: iconHeight)
-            let originX: CGFloat = (view.frame.width - backgroundView.frame.width)/2 + CGFloat(index + 1)*padding + CGFloat(index)*iconHeight
-            let originY: CGFloat = view.frame.height - backgroundView.frame.height + padding
+            let originX: CGFloat = (view.frame.width - backgroundView.frame.width)/2 + margin + CGFloat(index)*spacing + CGFloat(index)*iconHeight
+            let originY: CGFloat = view.frame.height - backgroundView.frame.height + margin
             icon.frame = CGRect(origin: CGPoint(x: originX, y: originY), size: size)
             view.addSubview(icon)
         }
@@ -52,16 +60,26 @@ final class TabBarController: UIViewController {
     }()
     
     // Delegate/DataSource
-    weak var dataSource: TabBarControllerDataSource?
-    weak var delegate: TabBarControllerDelegate?
+    weak var dataSource: TabBarDataSource? {
+        didSet {
+            numberOfIcons = dataSource?.tabBarNumberOfViews() ?? numberOfIcons
+        }
+    }
+    weak var delegate: TabBarDelegate?
+    weak var delegateLayout: TabBarDelegateLayout? {
+        didSet {
+            iconHeight = delegateLayout?.tabBarContentViewHeight() ?? iconHeight
+            margin = delegateLayout?.tabBarContentViewMargin() ?? margin
+            spacing = delegateLayout?.tabBarInterViewSpacing() ?? spacing
+        }
+    }
     // Controller
     weak var controller: UIViewController!
     // Constants
-    private var numberOfIcons: CGFloat {
-        CGFloat(dataSource?.tabBarNumberOfViews(self) ?? 0)
-    }
-    private let iconHeight: CGFloat = 48
-    private let padding: CGFloat = 20
+    private var numberOfIcons: Int = 3
+    private var iconHeight: CGFloat = 48
+    private var margin: CGFloat = 8
+    private var spacing: CGFloat = 24
     // Layer
     private var shapeLayer: CAShapeLayer!
     // Properties
@@ -137,10 +155,10 @@ extension TabBarController {
 extension TabBarController {
     @objc private func handleViewSelection(_ gesture: UITapGestureRecognizer) {
         guard let view = gesture.view else { return }
-        if view.tag == Int(numberOfIcons/2) { setMoreOptions(isVisible: isTransformed ? false : true) }
+        if view.tag == numberOfIcons/2 { setMoreOptions(isVisible: isTransformed ? false : true) }
         else if isTransformed { setMoreOptions(isVisible: false) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.delegate?.tabBar(self, didSelectViewAt: view.tag, on: self.controller)
+            self.delegate?.tabBar(didSelectViewAt: view.tag, on: self.controller)
         }
     }
 }
@@ -156,8 +174,9 @@ extension TabBarController {
             controller.view.addSubview(self.view)
             UIView.animate(withDuration: 1, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
                 self.view.alpha = 1
-                self.view.frame.origin.y = controller.view.frame.height - self.view.frame.height - controller.view.safeAreaInsets.bottom
-                self.iconsContainerView.subviews[Int(self.numberOfIcons/2)].transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1, y: 1)
+                let bottomInset = controller.view.safeAreaInsets.bottom == 0 ? 16 : controller.view.safeAreaInsets.bottom
+                self.view.frame.origin.y = controller.view.frame.height - self.view.frame.height - bottomInset
+                self.iconsContainerView.subviews[self.numberOfIcons/2].transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.2, y: 1.2)
             }
         }
     }
@@ -175,29 +194,37 @@ extension TabBarController {
     
     func setMoreOptions(isVisible: Bool) {
         guard isTransformed != isVisible else { return }
+        delegate?.tabBar(willDisplay: iconsContainerView.subviews)
         UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
             self.iconsContainerView.subviews.forEach { icon in
                 icon.transform = CGAffineTransform(translationX: 0, y: -self.iconHeight)
             }
             for (index, icon) in self.iconsContainerView.subviews.enumerated() {
+                let midIndex = self.numberOfIcons/2
                 if self.isTransformed {
-                    if index != 2 {
+                    if index != midIndex {
                         icon.transform = .identity
                     } else {
-                        icon.transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1, y: 1)
+                        icon.transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.2, y: 1.2)
                     }
                     continue
                 }
-                let midIndex = Int(self.numberOfIcons/2)
-                switch index {
-                case 1,3: icon.transform = .init(translationX: 0, y: -1.5*self.iconHeight)
-                case 0,4: icon.transform = .init(translationX: 0, y: -0.6*self.iconHeight)
-                case midIndex: icon.transform = .init(translationX: 0, y: 0.2*self.iconHeight)
-                default:
-                    icon.transform = .identity
+                var translationYMultiple: CGFloat = 1
+                if index < midIndex {
+                    translationYMultiple = -0.6*CGFloat(index + 1)
+                } else if index > midIndex {
+                    translationYMultiple = -0.6*CGFloat(self.numberOfIcons - index)
+                } else {
+                    translationYMultiple = 0.1
                 }
+                var transform: CGAffineTransform = .identity
+                transform = .init(translationX: 0, y: translationYMultiple*self.iconHeight)
+                if index != midIndex {
+                    transform = transform.scaledBy(x: 1.2, y: 1.2)
+                }
+                icon.transform = transform
             }
-            self.backgroundView.transform = self.isTransformed ? .identity : .init(scaleX: 0.1, y: 0.1)
+            self.backgroundView.transform = self.isTransformed ? .identity : .init(scaleX: 0, y: 0)
         } completion: { _ in
             self.isTransformed = !self.isTransformed
         }
