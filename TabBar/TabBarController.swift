@@ -7,34 +7,40 @@
 
 import UIKit
 
+//MARK:- DataSource
 protocol TabBarDataSource: AnyObject {
     func tabBarNumberOfViews() -> Int
     func tabBar(viewForItemAt index: Int) -> UIView
 }
 
+//MARK:- Delegate
 protocol TabBarDelegate: AnyObject {
-    func tabBar(didSelectViewAt index: Int, on controller: UIViewController)
+    func tabBar(didSelectViewAt index: Int)
     func tabBar(willDisplay views: [UIView])
 }
 
-protocol TabBarDelegateLayout: AnyObject {
-    func tabBarContentViewHeight() -> CGFloat
-    func tabBarContentViewMargin() -> CGFloat
-    func tabBarInterViewSpacing() -> CGFloat
-    func tabBarBackgroundColor() -> UIColor
+//MARK:- DelegateLayout
+@objc protocol TabBarDelegateLayout: AnyObject {
+    @objc optional func tabBarContentViewHeight() -> CGFloat
+    @objc optional func tabBarContentViewMargin() -> CGFloat
+    @objc optional func tabBarInterViewSpacing() -> CGFloat
+    @objc optional func tabBarBackgroundColor() -> UIColor
 }
 
+//MARK:- Controller
 final class TabBarController: UIViewController {
     static let shared = TabBarController()
 
     // Views
     private lazy var backgroundView: UIView = {
         let view = UIView()
+        view.isUserInteractionEnabled = true
         view.backgroundColor = .clear
         view.clipsToBounds = true
         let iconsCount = CGFloat(numberOfIcons)
         let width = (iconsCount * iconHeight) + (iconsCount - 1)*spacing + 2*margin
         view.frame.size = .init(width: width, height: iconHeight + 2*margin)
+        self.view.frame.size.height = view.frame.height + iconHeight
         view.frame.origin.y = self.view.frame.height - view.frame.height
         view.frame.origin.x = (self.view.frame.width - view.frame.width)/2
         return view
@@ -60,7 +66,7 @@ final class TabBarController: UIViewController {
         return view
     }()
     
-    // Delegate/DataSource
+    // Delegates/DataSource
     weak var dataSource: TabBarDataSource? {
         didSet {
             numberOfIcons = dataSource?.tabBarNumberOfViews() ?? numberOfIcons
@@ -69,14 +75,12 @@ final class TabBarController: UIViewController {
     weak var delegate: TabBarDelegate?
     weak var delegateLayout: TabBarDelegateLayout? {
         didSet {
-            iconHeight = delegateLayout?.tabBarContentViewHeight() ?? iconHeight
-            margin = delegateLayout?.tabBarContentViewMargin() ?? margin
-            spacing = delegateLayout?.tabBarInterViewSpacing() ?? spacing
-            shapeLayerFillColor = delegateLayout?.tabBarBackgroundColor().cgColor ?? shapeLayerFillColor
+            iconHeight = delegateLayout?.tabBarContentViewHeight?() ?? iconHeight
+            margin = delegateLayout?.tabBarContentViewMargin?() ?? margin
+            spacing = delegateLayout?.tabBarInterViewSpacing?() ?? spacing
+            shapeLayerFillColor = delegateLayout?.tabBarBackgroundColor?().cgColor ?? shapeLayerFillColor
         }
     }
-    // Controller
-    weak var controller: UIViewController!
     // Constants
     private var numberOfIcons: Int = 3
     private var iconHeight: CGFloat = 48
@@ -87,7 +91,10 @@ final class TabBarController: UIViewController {
     private var shapeLayer: CAShapeLayer!
     // Properties
     private var isTransformed: Bool = false
-    
+}
+
+//MARK:- View
+extension TabBarController {
     override func viewDidLoad() {
         super.viewDidLoad()
         initBackgroundView()
@@ -104,6 +111,7 @@ final class TabBarController: UIViewController {
 extension TabBarController {
     // View
     private func updateView() {
+        view.backgroundColor = .clear
         view.layer.cornerRadius = iconHeight / 2
         view.layer.shadowColor = UIColor.darkGray.cgColor
         view.layer.shadowRadius = 5
@@ -141,11 +149,11 @@ extension TabBarController {
         shapeLayer.frame = backgroundView.bounds
         shapeLayer.strokeColor = UIColor.lightGray.cgColor
         shapeLayer.fillColor = shapeLayerFillColor
-        shapeLayer.lineWidth = 0.5
+        shapeLayer.lineWidth = 0.2
         shapeLayer.shadowOffset = .zero
         shapeLayer.shadowRadius = 5
         shapeLayer.shadowColor = UIColor.darkGray.cgColor
-        shapeLayer.shadowOpacity = 0.5
+        shapeLayer.shadowOpacity = 0.2
         if let oldShapeLayer = self.shapeLayer {
             backgroundView.layer.replaceSublayer(oldShapeLayer, with: shapeLayer)
         } else {
@@ -155,48 +163,43 @@ extension TabBarController {
     }
 }
 
+//MARK:- Interaction
 extension TabBarController {
     @objc private func handleViewSelection(_ gesture: UITapGestureRecognizer) {
         guard let view = gesture.view else { return }
-        if view.tag == numberOfIcons/2 { setMoreOptions(isVisible: isTransformed ? false : true) }
-        else if isTransformed { setMoreOptions(isVisible: false) }
+        if view.tag == numberOfIcons/2 { setMoreOptions(isTransformed ? false : true) }
+        else if isTransformed { setMoreOptions(false) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.delegate?.tabBar(didSelectViewAt: view.tag, on: self.controller)
+            self.delegate?.tabBar(didSelectViewAt: view.tag)
+        }
+    }
+    
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if isTransformed { setMoreOptions(false) }
+        else if let point = touches.first?.location(in: backgroundView), !backgroundView.point(inside: point, with: event) {
+            view.superview?.touchesBegan(touches, with: event)
         }
     }
 }
 
-// Animations
+//MARK:- Animations
 extension TabBarController {
-    func showTabBar(on controller: UIViewController) {
+    func showTabBar(on view: UIView) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.controller = controller
-            self.view.frame.origin = .init(x: (controller.view.frame.width - self.view.frame.width)/2, y: controller.view.frame.height)
+            self.view.frame.origin = .init(x: (view.frame.width - self.view.frame.width)/2, y: view.frame.height)
             self.view.alpha = 0
-            controller.addChild(self)
-            controller.view.addSubview(self.view)
+            view.addSubview(self.view)
             UIView.animate(withDuration: 1, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
                 self.view.alpha = 1
-                let bottomInset = controller.view.safeAreaInsets.bottom == 0 ? 16 : controller.view.safeAreaInsets.bottom
-                self.view.frame.origin.y = controller.view.frame.height - self.view.frame.height - bottomInset
+                let bottomInset = view.safeAreaInsets.bottom == 0 ? 16 : view.safeAreaInsets.bottom
+                self.view.frame.origin.y = view.frame.height - self.view.frame.height - bottomInset
                 self.iconsContainerView.subviews[self.numberOfIcons/2].transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.2, y: 1.2)
             }
         }
     }
     
-    func hideTabBar() {
-        guard controller != nil else { return }
-        UIView.animate(withDuration: 1, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
-            self.view.alpha = 10
-            self.view.frame.origin.y = self.controller!.view.frame.height + self.iconHeight
-        } completion: { _ in
-            self.removeFromParent()
-            self.view.removeFromSuperview()
-        }
-    }
-    
-    func setMoreOptions(isVisible: Bool) {
-        guard isTransformed != isVisible else { return }
+    func setMoreOptions(_ bool: Bool) {
+        guard isTransformed != bool else { return }
         delegate?.tabBar(willDisplay: iconsContainerView.subviews)
         UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
             self.iconsContainerView.subviews.forEach { icon in

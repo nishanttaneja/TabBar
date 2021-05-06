@@ -16,6 +16,6 @@ class SecondViewController: UIViewController {
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        TabBarController.shared.showTabBar(on: self)
+        TabBarController.shared.showTabBar(on: self.view)
     }
 }
