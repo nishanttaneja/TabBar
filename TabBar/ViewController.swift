@@ -74,5 +74,9 @@ extension ViewController: TabBarDelegateLayout {
     func tabBarInterViewSpacing() -> CGFloat {
         16
     }
+    
+    func tabBarBackgroundColor() -> UIColor {
+        .red
+    }
 }
 

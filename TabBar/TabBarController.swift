@@ -21,6 +21,7 @@ protocol TabBarDelegateLayout: AnyObject {
     func tabBarContentViewHeight() -> CGFloat
     func tabBarContentViewMargin() -> CGFloat
     func tabBarInterViewSpacing() -> CGFloat
+    func tabBarBackgroundColor() -> UIColor
 }
 
 final class TabBarController: UIViewController {
@@ -71,6 +72,7 @@ final class TabBarController: UIViewController {
             iconHeight = delegateLayout?.tabBarContentViewHeight() ?? iconHeight
             margin = delegateLayout?.tabBarContentViewMargin() ?? margin
             spacing = delegateLayout?.tabBarInterViewSpacing() ?? spacing
+            shapeLayerFillColor = delegateLayout?.tabBarBackgroundColor().cgColor ?? shapeLayerFillColor
         }
     }
     // Controller
@@ -80,6 +82,7 @@ final class TabBarController: UIViewController {
     private var iconHeight: CGFloat = 48
     private var margin: CGFloat = 8
     private var spacing: CGFloat = 24
+    private var shapeLayerFillColor: CGColor = UIColor.white.cgColor
     // Layer
     private var shapeLayer: CAShapeLayer!
     // Properties
@@ -137,7 +140,7 @@ extension TabBarController {
         shapeLayer.path = shapeLayerPath
         shapeLayer.frame = backgroundView.bounds
         shapeLayer.strokeColor = UIColor.lightGray.cgColor
-        shapeLayer.fillColor = UIColor.white.cgColor
+        shapeLayer.fillColor = shapeLayerFillColor
         shapeLayer.lineWidth = 0.5
         shapeLayer.shadowOffset = .zero
         shapeLayer.shadowRadius = 5
