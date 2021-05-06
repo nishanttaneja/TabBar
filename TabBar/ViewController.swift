@@ -16,7 +16,6 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         TabBarController.shared.dataSource = self
-        TabBarController.shared.delegate = self
         TabBarController.shared.delegateLayout = self
         TabBarController.shared.showTabBar(on: self.view)
     }
@@ -27,23 +26,16 @@ class ViewController: UIViewController {
 }
 
 extension ViewController: TabBarDataSource {
-    func tabBarNumberOfViews() -> Int {
-        5
-    }
-    
-    func tabBar(viewForItemAt index: Int) -> UIView {
+    func tabBar(viewForItemAt index: Int, moreOptionState isVisible: Bool) -> UIView {
         let button = UIButton(type: .system)
         button.setBackgroundImage([#imageLiteral(resourceName: "blue_like"), #imageLiteral(resourceName: "red_heart"), #imageLiteral(resourceName: "surprised"), #imageLiteral(resourceName: "cry_laugh"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry"), #imageLiteral(resourceName: "cry")][index], for: .normal)
         return button
     }
-}
-
-extension ViewController: TabBarDelegate {
-    func tabBar(willDisplay views: [UIView]) { }
     
-    func tabBar(didSelectViewAt index: Int) { }
+    func tabBarNumberOfViews() -> Int {
+        5
+    }
 }
-
 
 extension ViewController: TabBarDelegateLayout {
     func tabBarContentViewHeight() -> CGFloat {

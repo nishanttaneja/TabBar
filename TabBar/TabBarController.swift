@@ -10,13 +10,13 @@ import UIKit
 //MARK:- DataSource
 protocol TabBarDataSource: AnyObject {
     func tabBarNumberOfViews() -> Int
-    func tabBar(viewForItemAt index: Int) -> UIView
+    func tabBar(viewForItemAt index: Int, moreOptionState isVisible: Bool) -> UIView
 }
 
 //MARK:- Delegate
-protocol TabBarDelegate: AnyObject {
-    func tabBar(didSelectViewAt index: Int)
-    func tabBar(willDisplay views: [UIView])
+@objc protocol TabBarDelegate: AnyObject {
+    @objc optional func tabBar(didSelectViewAt index: Int)
+    @objc optional func tabBar(willDisplay views: [UIView])
 }
 
 //MARK:- DelegateLayout
@@ -51,7 +51,7 @@ final class TabBarController: UIViewController {
         view.backgroundColor = .clear
         guard dataSource != nil else { return view }
         for index in 0..<numberOfIcons {
-            let icon = dataSource!.tabBar(viewForItemAt: index)
+            let icon = dataSource!.tabBar(viewForItemAt: index, moreOptionState: isTransformed)
             icon.layer.cornerRadius = iconHeight/2
             icon.isUserInteractionEnabled = true
             icon.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleViewSelection(_:))))
@@ -61,10 +61,31 @@ final class TabBarController: UIViewController {
             let originX: CGFloat = (view.frame.width - backgroundView.frame.width)/2 + margin + CGFloat(index)*spacing + CGFloat(index)*iconHeight
             let originY: CGFloat = view.frame.height - backgroundView.frame.height + margin
             icon.frame = CGRect(origin: CGPoint(x: originX, y: originY), size: size)
+            // Mid
+            if index == numberOfIcons/2 {
+                icon.transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.1, y: 1.1)
+                icon.backgroundColor = shapeLayerFillColor
+            }
             view.addSubview(icon)
         }
         return view
     }()
+    
+    private func updateIcons() {
+        guard dataSource != nil else { return }
+        for index in 0..<numberOfIcons {
+            let icon = dataSource!.tabBar(viewForItemAt: index, moreOptionState: !isTransformed)
+            icon.layer.cornerRadius = iconHeight/2
+            icon.isUserInteractionEnabled = true
+            icon.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(handleViewSelection(_:))))
+            icon.tag = index
+            // Frame
+            let oldIcon = iconsContainerView.subviews[0]
+            icon.frame = oldIcon.frame
+            iconsContainerView.addSubview(icon)
+            oldIcon.removeFromSuperview()
+        }
+    }
     
     // Delegates/DataSource
     weak var dataSource: TabBarDataSource? {
@@ -78,15 +99,15 @@ final class TabBarController: UIViewController {
             iconHeight = delegateLayout?.tabBarContentViewHeight?() ?? iconHeight
             margin = delegateLayout?.tabBarContentViewMargin?() ?? margin
             spacing = delegateLayout?.tabBarInterViewSpacing?() ?? spacing
-            shapeLayerFillColor = delegateLayout?.tabBarBackgroundColor?().cgColor ?? shapeLayerFillColor
+            shapeLayerFillColor = delegateLayout?.tabBarBackgroundColor?() ?? shapeLayerFillColor
         }
     }
     // Constants
     private var numberOfIcons: Int = 3
     private var iconHeight: CGFloat = 48
-    private var margin: CGFloat = 8
-    private var spacing: CGFloat = 24
-    private var shapeLayerFillColor: CGColor = UIColor.white.cgColor
+    private var margin: CGFloat = 12
+    private var spacing: CGFloat = 16
+    private var shapeLayerFillColor: UIColor = UIColor.white
     // Layer
     private var shapeLayer: CAShapeLayer!
     // Properties
@@ -147,9 +168,7 @@ extension TabBarController {
         let shapeLayer = CAShapeLayer()
         shapeLayer.path = shapeLayerPath
         shapeLayer.frame = backgroundView.bounds
-        shapeLayer.strokeColor = UIColor.lightGray.cgColor
-        shapeLayer.fillColor = shapeLayerFillColor
-        shapeLayer.lineWidth = 0.2
+        shapeLayer.fillColor = shapeLayerFillColor.cgColor
         shapeLayer.shadowOffset = .zero
         shapeLayer.shadowRadius = 5
         shapeLayer.shadowColor = UIColor.darkGray.cgColor
@@ -167,10 +186,12 @@ extension TabBarController {
 extension TabBarController {
     @objc private func handleViewSelection(_ gesture: UITapGestureRecognizer) {
         guard let view = gesture.view else { return }
-        if view.tag == numberOfIcons/2 { setMoreOptions(isTransformed ? false : true) }
+        if view.tag == numberOfIcons/2 {
+            setMoreOptions(isTransformed ? false : true)
+        }
         else if isTransformed { setMoreOptions(false) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.delegate?.tabBar(didSelectViewAt: view.tag)
+            self.delegate?.tabBar?(didSelectViewAt: view.tag)
         }
     }
     
@@ -193,44 +214,36 @@ extension TabBarController {
                 self.view.alpha = 1
                 let bottomInset = view.safeAreaInsets.bottom == 0 ? 16 : view.safeAreaInsets.bottom
                 self.view.frame.origin.y = view.frame.height - self.view.frame.height - bottomInset
-                self.iconsContainerView.subviews[self.numberOfIcons/2].transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.2, y: 1.2)
             }
         }
     }
     
     func setMoreOptions(_ bool: Bool) {
         guard isTransformed != bool else { return }
-        delegate?.tabBar(willDisplay: iconsContainerView.subviews)
+        updateIcons()
+        delegate?.tabBar?(willDisplay: iconsContainerView.subviews)
         UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.6, initialSpringVelocity: 1, options: .curveEaseOut) {
-            self.iconsContainerView.subviews.forEach { icon in
-                icon.transform = CGAffineTransform(translationX: 0, y: -self.iconHeight)
-            }
-            for (index, icon) in self.iconsContainerView.subviews.enumerated() {
-                let midIndex = self.numberOfIcons/2
-                if self.isTransformed {
-                    if index != midIndex {
-                        icon.transform = .identity
-                    } else {
-                        icon.transform = .init(translationX: 0, y: -self.iconHeight).scaledBy(x: 1.2, y: 1.2)
-                    }
-                    continue
-                }
-                var translationYMultiple: CGFloat = 1
-                if index < midIndex {
-                    translationYMultiple = -0.6*CGFloat(index + 1)
-                } else if index > midIndex {
-                    translationYMultiple = -0.6*CGFloat(self.numberOfIcons - index)
-                } else {
-                    translationYMultiple = 0.1
-                }
-                var transform: CGAffineTransform = .identity
-                transform = .init(translationX: 0, y: translationYMultiple*self.iconHeight)
-                if index != midIndex {
-                    transform = transform.scaledBy(x: 1.2, y: 1.2)
-                }
-                icon.transform = transform
-            }
             self.backgroundView.transform = self.isTransformed ? .identity : .init(scaleX: 0, y: 0)
+            let midIndex = self.numberOfIcons/2
+            var translationY: CGFloat = 0
+            for (index, icon) in self.iconsContainerView.subviews.enumerated() {
+                if index == midIndex {
+                    translationY = self.isTransformed ? -self.iconHeight : self.iconHeight
+                } else if index < midIndex {
+                    let value = 0.6*CGFloat(index + 1)*self.iconHeight
+                    translationY = self.isTransformed ? value : -value
+                } else if index > midIndex {
+                    let value = 0.6*CGFloat(self.numberOfIcons - index)*self.iconHeight
+                    translationY = self.isTransformed ? value : -value
+                }
+                icon.transform = .init(translationX: 0, y: translationY)
+                icon.backgroundColor = self.isTransformed ? .clear : self.shapeLayerFillColor
+                if index == midIndex {
+                    icon.backgroundColor = self.shapeLayerFillColor
+                } else {
+                    icon.backgroundColor = self.isTransformed ? .clear : self.shapeLayerFillColor
+                }
+            }
         } completion: { _ in
             self.isTransformed = !self.isTransformed
         }
